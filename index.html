@@ -4,6 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Vendor Supported Sales Goal Tracker</title>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -117,6 +119,19 @@
   <div class="logo-grid drop-zone" id="logoGrid" ondragover="allowDrop(event)" ondrop="dropToConfirmed(event)"></div>
 
   <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyAtzaR3hxzp3c9YrKyG3eFJonrA0lK_wOA",
+      authDomain: "vendor-sales-project.firebaseapp.com",
+      databaseURL: "https://vendor-sales-project-default-rtdb.firebaseio.com",
+      projectId: "vendor-sales-project",
+      storageBucket: "vendor-sales-project.appspot.com",
+      messagingSenderId: "291387071840",
+      appId: "1:291387071840:web:49ffc29acf737ecd2b5205"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
     let customerCount = 0;
     const goal = 200;
 
@@ -127,7 +142,7 @@
     }
 
     function generateLogoURL(companyName) {
-      const domain = companyName.toLowerCase().replace(/\s+/g, '') + ".com";
+      const domain = companyName.toLowerCase().replace(/\\s+/g, '') + ".com";
       return `https://logo.clearbit.com/${domain}`;
     }
 
@@ -138,16 +153,13 @@
     function addProspect() {
       const name = document.getElementById('clientName').value.trim();
       if (!name) return alert("Please enter the prospect name.");
-
-      const logoUrl = generateLogoURL(name);
       const id = 'logo-' + Date.now();
-
-      const item = createLogoItem(name, logoUrl, id);
-      document.getElementById('prospectGrid').appendChild(item);
+      const logoUrl = generateLogoURL(name);
+      db.ref('prospects/' + id).set({ name, logoUrl });
       document.getElementById('clientName').value = '';
     }
 
-    function createLogoItem(name, logoUrl, id) {
+    function createLogoItem(name, logoUrl, id, listType) {
       const item = document.createElement('div');
       item.className = 'logo-grid-item';
       item.draggable = true;
@@ -165,8 +177,9 @@
       removeBtn.innerText = '×';
       removeBtn.className = 'remove-btn';
       removeBtn.onclick = () => {
+        db.ref(listType + '/' + id).remove();
         item.remove();
-        if (item.parentElement.id === 'logoGrid') {
+        if (listType === 'confirmed') {
           customerCount--;
           updateThermometer();
         }
@@ -180,24 +193,52 @@
     function dropToConfirmed(event) {
       event.preventDefault();
       const id = event.dataTransfer.getData('text/plain');
-      const item = document.getElementById(id);
-      if (item && item.parentElement.id !== 'logoGrid') {
-        document.getElementById('logoGrid').appendChild(item);
-        customerCount++;
-        updateThermometer();
-      }
+      db.ref('prospects/' + id).once('value', snapshot => {
+        const data = snapshot.val();
+        if (data) {
+          db.ref('confirmed/' + id).set(data);
+          db.ref('prospects/' + id).remove();
+        }
+      });
     }
 
     function dropToProspects(event) {
       event.preventDefault();
       const id = event.dataTransfer.getData('text/plain');
-      const item = document.getElementById(id);
-      if (item && item.parentElement.id !== 'prospectGrid') {
-        document.getElementById('prospectGrid').appendChild(item);
-        customerCount--;
-        updateThermometer();
-      }
+      db.ref('confirmed/' + id).once('value', snapshot => {
+        const data = snapshot.val();
+        if (data) {
+          db.ref('prospects/' + id).set(data);
+          db.ref('confirmed/' + id).remove();
+        }
+      });
     }
+
+    function loadCustomers() {
+      db.ref('prospects').on('value', snapshot => {
+        const grid = document.getElementById('prospectGrid');
+        grid.innerHTML = '';
+        const data = snapshot.val() || {};
+        Object.keys(data).forEach(id => {
+          const item = createLogoItem(data[id].name, data[id].logoUrl, id, 'prospects');
+          grid.appendChild(item);
+        });
+      });
+
+      db.ref('confirmed').on('value', snapshot => {
+        const grid = document.getElementById('logoGrid');
+        grid.innerHTML = '';
+        const data = snapshot.val() || {};
+        customerCount = Object.keys(data).length;
+        updateThermometer();
+        Object.keys(data).forEach(id => {
+          const item = createLogoItem(data[id].name, data[id].logoUrl, id, 'confirmed');
+          grid.appendChild(item);
+        });
+      });
+    }
+
+    loadCustomers();
   </script>
 </body>
 </html>
