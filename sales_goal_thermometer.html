@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vendor Supported Sales Goal Tracker</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+      background: #f0f0f0;
+    }
+    h1 {
+      margin-bottom: 10px;
+    }
+    .thermometer {
+      width: 100px;
+      height: 400px;
+      border: 2px solid #ccc;
+      border-radius: 50px;
+      background: white;
+      margin: 0 auto;
+      position: relative;
+      overflow: hidden;
+    }
+    .fill {
+      position: absolute;
+      bottom: 0;
+      width: 100%;
+      background: red;
+      transition: height 0.5s ease;
+    }
+    .goal-text {
+      margin-top: 20px;
+      font-size: 1.2em;
+    }
+    .input-area {
+      margin-top: 20px;
+    }
+    .thermometer-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+    .logo-grid {
+      margin-top: 30px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+      gap: 10px;
+      max-width: 80vw;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .logo-grid-item {
+      position: relative;
+      width: 60px;
+      height: 60px;
+      background: white;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .logo-grid-item img {
+      max-width: 90%;
+      max-height: 90%;
+    }
+    .remove-btn {
+      position: absolute;
+      top: -8px;
+      right: -8px;
+      background: #ff4444;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 18px;
+      height: 18px;
+      font-size: 12px;
+      cursor: pointer;
+      z-index: 1;
+    }
+    .drop-zone {
+      border: 2px dashed #999;
+      padding: 10px;
+      min-height: 80px;
+      margin-top: 20px;
+      background: #fff;
+    }
+    .drop-zone-title {
+      margin: 10px 0;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>Vendor Supported Sales Goal Tracker</h1>
+  <div class="thermometer-container">
+    <div class="thermometer">
+      <div class="fill" id="fill" style="height: 0%"></div>
+    </div>
+    <div class="goal-text">
+      <span id="current-count">0</span> / 200 Customers Signed Up
+    </div>
+  </div>
+  <div class="input-area">
+    <input type="text" id="clientName" placeholder="Prospect Name" />
+    <button onclick="addProspect()">Add Prospect</button>
+  </div>
+
+  <div class="drop-zone-title">Prospective Customers</div>
+  <div class="logo-grid drop-zone" id="prospectGrid" ondragover="allowDrop(event)" ondrop="dropToProspects(event)"></div>
+
+  <div class="drop-zone-title">Confirmed Customers</div>
+  <div class="logo-grid drop-zone" id="logoGrid" ondragover="allowDrop(event)" ondrop="dropToConfirmed(event)"></div>
+
+  <script>
+    let customerCount = 0;
+    const goal = 200;
+
+    function updateThermometer() {
+      const percent = Math.min((customerCount / goal) * 100, 100);
+      document.getElementById('fill').style.height = percent + '%';
+      document.getElementById('current-count').innerText = customerCount;
+    }
+
+    function generateLogoURL(companyName) {
+      const domain = companyName.toLowerCase().replace(/\s+/g, '') + ".com";
+      return `https://logo.clearbit.com/${domain}`;
+    }
+
+    function allowDrop(event) {
+      event.preventDefault();
+    }
+
+    function addProspect() {
+      const name = document.getElementById('clientName').value.trim();
+      if (!name) return alert("Please enter the prospect name.");
+
+      const logoUrl = generateLogoURL(name);
+      const id = 'logo-' + Date.now();
+
+      const item = createLogoItem(name, logoUrl, id);
+      document.getElementById('prospectGrid').appendChild(item);
+      document.getElementById('clientName').value = '';
+    }
+
+    function createLogoItem(name, logoUrl, id) {
+      const item = document.createElement('div');
+      item.className = 'logo-grid-item';
+      item.draggable = true;
+      item.id = id;
+      item.ondragstart = e => e.dataTransfer.setData('text/plain', id);
+
+      const img = document.createElement('img');
+      img.src = logoUrl;
+      img.alt = name;
+      img.onerror = function () {
+        this.src = 'https://via.placeholder.com/60?text=?';
+      };
+
+      const removeBtn = document.createElement('button');
+      removeBtn.innerText = '×';
+      removeBtn.className = 'remove-btn';
+      removeBtn.onclick = () => {
+        item.remove();
+        if (item.parentElement.id === 'logoGrid') {
+          customerCount--;
+          updateThermometer();
+        }
+      };
+
+      item.appendChild(removeBtn);
+      item.appendChild(img);
+      return item;
+    }
+
+    function dropToConfirmed(event) {
+      event.preventDefault();
+      const id = event.dataTransfer.getData('text/plain');
+      const item = document.getElementById(id);
+      if (item && item.parentElement.id !== 'logoGrid') {
+        document.getElementById('logoGrid').appendChild(item);
+        customerCount++;
+        updateThermometer();
+      }
+    }
+
+    function dropToProspects(event) {
+      event.preventDefault();
+      const id = event.dataTransfer.getData('text/plain');
+      const item = document.getElementById(id);
+      if (item && item.parentElement.id !== 'prospectGrid') {
+        document.getElementById('prospectGrid').appendChild(item);
+        customerCount--;
+        updateThermometer();
+      }
+    }
+  </script>
+</body>
+</html>
